@@ -30,9 +30,16 @@ def transform(images: np.ndarray):
 def as_numpy(val: Tensor) -> np.ndarray:
     return val.detach().cpu().numpy()
 
+def read_image(image_path):
+    img = cv2.imread(image_path)
+    if img is None:
+        cap = cv2.VideoCapture(image_path)
+        ret, img = cap.read()
+        cap.release()
+    return img
 
 def model_output(image_path):
-    img = cv2.imread(image_path)
+    img = read_image(image_path)
     imgt = transform(img)
     imgt = imgt.to(device)
     with torch.no_grad():
@@ -42,7 +49,7 @@ def model_output(image_path):
 
 INDEX_PATH =  "/nethome/kravicha3/aryan/project/notebooks/redditdataset/saves/HNSW_dataindex.index"
 index = faiss.read_index(INDEX_PATH)
-k = 10
+k = 30
 REDDIT_DATA_HOME = os.path.join("/nethome/kravicha3/aryan/project/dataset/Reddit_Provenance_Datasets/data/")
 reddit_threads = os.listdir(REDDIT_DATA_HOME)
 # reddit_threads = ['_This_picture_of_Hillary_Clinton_and_Barack_Obama']
@@ -54,16 +61,12 @@ def get_similarity_results(image_path):
     # get index similarity
     D, I = index.search(output, k)
     # get the filenames
-    results = list()
-    for i in I[0]:
-        c.execute(f"SELECT * FROM '192111ccbbbfc5042415841dfaa9f90a' WHERE _row_id={i}")
-        r= c.fetchall()
-        results.append(r[0][1])
-    return results
+    results = I[0]
+    return results, output
 
 
 def get_examples():
-    dataframe = pd.DataFrame(columns=['image_name', 'image_dir', 'num_similar', 'results'])
+    dataframe = pd.DataFrame(columns=['image_name', 'image_dir', 'results','image_features'])
     # take a directory and get all image results from it
     for dir_name in reddit_threads:
         img_dir = os.path.join(REDDIT_DATA_HOME, dir_name)
@@ -72,18 +75,11 @@ def get_examples():
             if (file_name.endswith(".jpg") or file_name.endswith(".png")):
                 fp = os.path.join(img_dir, file_name)
                 try:
-                    result = get_similarity_results(fp)
+                    result, features = get_similarity_results(fp)
                 except Exception as e:
-                    print(e)
+                    print(e, fp)
                     continue
-                num_sim = 0
-                
-                for name in result:
-                    
-                    if img_dir in name:
-                        num_sim += 1
-                
-                dataframe.loc[len(dataframe)] = [file_name, img_dir, num_sim, result]
+                dataframe.loc[len(dataframe)] = [file_name, img_dir, result, features]
                 torch.cuda.empty_cache()
             
         print(f"completed dir: {dir_name}", len(dataframe))
