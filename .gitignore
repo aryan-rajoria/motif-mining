@@ -3,3 +3,4 @@
 *.np
 *.db
 mining_result_log
+/.ipynb_checkpoints/
