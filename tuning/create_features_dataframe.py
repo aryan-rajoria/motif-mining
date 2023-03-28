@@ -89,7 +89,6 @@ def get_image_features(start_path = '.'):
                     # features = model_output(fp)
                     features = feature_extractor_output(fp)
                     
-                    features['layer1.2'] = 
                 except Exception as e:
                     print(e, fp)
                     continue
